@@ -1,0 +1,51 @@
+# 基于私有仓库基础镜像构建 kkfileview-go 镜像（本机网络无法访问 Docker Hub 时使用）
+#
+# 与根目录 Dockerfile 的区别：构建阶段改为「外部预编译的 linux 二进制」，
+# 运行基础镜像换成内网可达的 registry.yudream.online/library/kkfileview:5.0.2
+# （Ubuntu 24.04，已含 LibreOffice），其余产物布局与根 Dockerfile 完全一致。
+#
+# 用法：scripts/build-image.sh
+
+ARG BASE_IMAGE=registry.yudream.online/library/kkfileview:5.0.2
+FROM ${BASE_IMAGE}
+
+ENV KKFILEVIEW_BIN_FOLDER=/opt/kkfileview/bin \
+    TZ=Asia/Shanghai \
+    LANG=zh_CN.UTF-8 \
+    LANGUAGE=zh_CN:zh \
+    LC_ALL=zh_CN.UTF-8
+
+# LibreOffice 基础镜像已自带（含文泉驿中文字体）；补齐 Go 版需要的 poppler / 7z / ffmpeg / qpdf
+# 拆成两个 RUN：控制单层体积，规避仓库对超大 blob 的 413 限制
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        poppler-utils \
+        p7zip-full \
+        qpdf \
+        ca-certificates \
+        curl \
+        tzdata \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /opt/kkfileview/bin
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# 去掉 Java 版遗留的 JRE 与应用目录，压缩镜像体积
+RUN rm -rf /opt/kkfileview/kkfileview && \
+    apt-get purge -y 'openjdk-*' 'default-jre*' >/dev/null 2>&1; \
+    apt-get autoremove -y >/dev/null 2>&1; \
+    rm -rf /var/lib/apt/lists/* /usr/share/doc /usr/share/man
+
+COPY dist/kkfileview-linux /opt/kkfileview/bin/kkfileview
+COPY config/ /opt/kkfileview/bin/config/
+COPY templates/ /opt/kkfileview/bin/templates/
+COPY static/ /opt/kkfileview/bin/static/
+
+VOLUME /opt/kkfileview/file
+EXPOSE 8012
+
+WORKDIR /opt/kkfileview/bin
+# 覆盖基础镜像的 java ENTRYPOINT
+ENTRYPOINT []
+CMD ["/opt/kkfileview/bin/kkfileview", "-config", "/opt/kkfileview/bin/config/application.properties", "-templates", "/opt/kkfileview/bin/templates", "-static", "/opt/kkfileview/bin/static"]

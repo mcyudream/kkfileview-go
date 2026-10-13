@@ -1,0 +1,9 @@
+.git
+.gitignore
+.dockerignore
+Dockerfile
+file/
+*.md
+FEASIBILITY.md
+cmd/
+*.py

@@ -1,0 +1,7 @@
+kkfileview
+kkfileview.exe
+kkfileview-linux
+file/
+*.log
+dist/
+imgtar/
