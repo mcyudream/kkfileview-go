@@ -190,7 +190,7 @@ func (c *CommonPreviewImpl) FilePreviewHandle(url string, model Model, attr *mod
 type OtherFilePreviewImpl struct{}
 
 func (o *OtherFilePreviewImpl) FilePreviewHandle(url string, model Model, attr *model.FileAttribute) string {
-	return notSupportedFile(model, "系统还不支持该格式文件的在线预览", "")
+	return notSupportedFile(model, attr.Suffix, "系统还不支持该格式文件的在线预览")
 }
 
 func (o *OtherFilePreviewImpl) NotSupportedAttr(model Model, attr *model.FileAttribute, errMsg string) string {

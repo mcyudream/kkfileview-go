@@ -249,11 +249,13 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, view string, mod
 	w.Write([]byte(out))
 }
 
-// baseAttributes 对应 AttributeSetFilter 注入的请求属性
+// baseAttributes 对应 AttributeSetFilter + BaseUrlFilter 注入的请求属性
 func (s *Server) baseAttributes(r *http.Request) map[string]any {
 	cfg := config.Get()
 	q := r.URL.Query()
 	return map[string]any{
+		// BaseUrlFilter 设置，供模板拼绝对地址（${baseUrl}）
+		"baseUrl":                    baseURLOf(r, cfg),
 		"pdfPresentationModeDisable": cfg.PdfPresentationModeDisable,
 		"pdfOpenFileDisable":         cfg.PdfOpenFileDisable,
 		"pdfPrintDisable":            cfg.PdfPrintDisable,

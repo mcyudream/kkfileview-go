@@ -195,3 +195,50 @@ func renderForTest(src string, data map[string]any) (string, error) {
 }
 
 var _ = strings.TrimSpace
+
+// TestBaseUrlPdfUrlAssembly pdf.ftl 的 finalUrl 拼装：
+// pdfUrl 为相对缓存名时必须是 baseUrl + pdfUrl（绝对地址），
+// pdfUrl 为绝对 http(s) 地址时原样透传。baseUrl 缺失会让 pdf.js 的
+// file= 参数退化成相对地址，在路径前缀部署下全部打偏。
+func TestBaseUrlPdfUrlAssembly(t *testing.T) {
+	ts, err := NewTemplateSet("../../templates")
+	if err != nil {
+		t.Fatalf("加载模板失败: %v", err)
+	}
+	base := mockData()
+	// 1) 相对缓存名 -> baseUrl + pdfUrl
+	base["baseUrl"] = "https://marker.example/kk/"
+	base["pdfUrl"] = "testdocdocx.pdf"
+	out, err := ts.Render("pdf", base)
+	if err != nil {
+		t.Fatalf("渲染 pdf 失败: %v", err)
+	}
+	if !strings.Contains(out, `var url = 'https:\/\/marker.example\/kk\/testdocdocx.pdf'`) {
+		t.Errorf("相对 pdfUrl 未拼成绝对地址:\n%s", lineWith(out, "var url ="))
+	}
+	if !strings.Contains(out, `var baseUrl = 'https://marker.example/kk/'`) {
+		t.Errorf("baseUrl 未按字面量渲染:\n%s", lineWith(out, "var baseUrl ="))
+	}
+	// viewerUrl 必须带前缀，否则路径前缀部署下 pdf.js 资源 404
+	if !strings.Contains(out, `var viewerUrl = baseUrl + "pdfjs/web/viewer.html?file="`) {
+		t.Error("viewerUrl 不是 baseUrl 相对拼装")
+	}
+	// 2) 绝对地址 -> 原样透传，不重复拼 baseUrl
+	base["pdfUrl"] = "https://oss.example.com/a/b.pdf"
+	out2, err := ts.Render("pdf", base)
+	if err != nil {
+		t.Fatalf("渲染 pdf(绝对) 失败: %v", err)
+	}
+	if !strings.Contains(out2, `var url = 'https:\/\/oss.example.com\/a\/b.pdf'`) {
+		t.Errorf("绝对 pdfUrl 被改写了:\n%s", lineWith(out2, "var url ="))
+	}
+}
+
+func lineWith(s, marker string) string {
+	for _, l := range strings.Split(s, "\n") {
+		if strings.Contains(l, marker) {
+			return strings.TrimSpace(l)
+		}
+	}
+	return "(未找到 " + marker + ")"
+}
